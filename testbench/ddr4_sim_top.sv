@@ -173,10 +173,10 @@ module ddr4_sim_top;
     import arch_package::*;
 
 `ifdef SIM_DENSITY_4G
-    localparam TB_DENSITY = _4G;
+    localparam UTYPE_density TB_DENSITY = _4G;
     localparam TB_DENSITY_GB = 4;
 `else
-    localparam TB_DENSITY = _8G;
+    localparam UTYPE_density TB_DENSITY = _8G;
     localparam TB_DENSITY_GB = 8;
 `endif
 
