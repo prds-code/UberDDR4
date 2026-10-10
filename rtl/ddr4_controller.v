@@ -574,10 +574,18 @@ module ddr4_controller #(
     //   addr 33: PRE ALL, wait tRP
     //   addr 34: REF,     wait tRFC
     //   addr 35: NOP,     wait REFRESH_TREFI_TIMER (computed below)
-    // Total period = T_RP + T_RFC + REFRESH_TREFI_TIMER + 3 controller cycles.
+    // Total period = T_RP + T_RFC + REFRESH_TREFI_TIMER + 3 controller cycles,
+    // plus up to MAX_PRECHARGE_DELAY cycles of PRE ALL hold (below).
     // The -3 accounts for the 3 cycles consumed firing each ROM entry
     // (one cycle each for addr 33, 34, 35) before their delay counters run.
-    localparam REFRESH_TREFI_TIMER = tREFI_ps / CONTROLLER_CLK_PERIOD - 3 - ps_to_cycles(tRP_ps) - ps_to_cycles(tRFC_ps);
+    // The -MAX_PRECHARGE_DELAY covers rom_prea_hold: when the tREFI timer
+    // expires, a command scheduled in the last refresh_idle cycle can leave
+    // a bank precharge counter at up to MAX_PRECHARGE_DELAY, and PRE ALL
+    // (addr 33) waits for it to drain before the next interval starts.
+    // That wait is never recovered, so without this margin the average
+    // REF-to-REF interval exceeds tREFI under sustained traffic.
+    localparam REFRESH_TREFI_TIMER = tREFI_ps / CONTROLLER_CLK_PERIOD - 3 - ps_to_cycles(tRP_ps) - ps_to_cycles(tRFC_ps)
+                                     - MAX_PRECHARGE_DELAY;
 
     // ========================================================
     // Mode Register Construction
@@ -2358,6 +2366,10 @@ module ddr4_controller #(
         $display("  Refresh loop period   = %0d ctrl (%0d ps)",
                  ps_to_cycles(tRP_ps) + ps_to_cycles(tRFC_ps) + REFRESH_TREFI_TIMER + 3,
                  (ps_to_cycles(tRP_ps) + ps_to_cycles(tRFC_ps) + REFRESH_TREFI_TIMER + 3)
+                 * CONTROLLER_CLK_PERIOD);
+        $display("  Refresh loop worst    = %0d ctrl (%0d ps, incl. PRE ALL hold)",
+                 ps_to_cycles(tRP_ps) + ps_to_cycles(tRFC_ps) + REFRESH_TREFI_TIMER + 3 + MAX_PRECHARGE_DELAY,
+                 (ps_to_cycles(tRP_ps) + ps_to_cycles(tRFC_ps) + REFRESH_TREFI_TIMER + 3 + MAX_PRECHARGE_DELAY)
                  * CONTROLLER_CLK_PERIOD);
 
         $display("-- Computed Delays (controller cycles)");
